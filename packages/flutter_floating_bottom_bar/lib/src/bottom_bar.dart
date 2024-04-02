@@ -127,10 +127,11 @@ class BottomBar extends StatefulWidget {
   ///
   /// The clipBehaviour property of the `Stack` in which the `BottomBar` is placed.
   final Clip clip;
-
-  const BottomBar({
+  BottomBarController controller;
+  BottomBar({
     required this.body,
     required this.child,
+    required this.controller,
     this.icon,
     this.iconWidth = 30,
     this.iconHeight = 30,
@@ -146,7 +147,7 @@ class BottomBar extends StatefulWidget {
     this.borderRadius = BorderRadius.zero,
     this.showIcon = true,
     @Deprecated('Use barAlignment instead, this will be removed in a future release')
-    this.alignment = Alignment.bottomCenter,
+        this.alignment = Alignment.bottomCenter,
     this.barAlignment = Alignment.bottomCenter,
     this.onBottomBarShown,
     this.onBottomBarHidden,
@@ -162,9 +163,25 @@ class BottomBar extends StatefulWidget {
   _BottomBarState createState() => _BottomBarState();
 }
 
-class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMixin {
+class BottomBarController extends ChangeNotifier {
+  late AnimationController animationController;
+  void show() {
+    print(22);
+    animationController.forward();
+    notifyListeners();
+  }
+
+  void hide() {
+    print(13);
+    animationController.reverse();
+    notifyListeners();
+  }
+}
+
+class _BottomBarState extends State<BottomBar>
+    with SingleTickerProviderStateMixin {
   ScrollController scrollBottomBarController = ScrollController();
-  late AnimationController _controller;
+  // late AnimationController _controller;
   late Animation<Offset> _offsetAnimation;
   late bool isScrollingDown;
   late bool isOnTop;
@@ -175,7 +192,7 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
     isOnTop = !widget.reverse;
     myScroll();
     super.initState();
-    _controller = AnimationController(
+    widget.controller.animationController = AnimationController(
       duration: widget.duration,
       vsync: this,
     );
@@ -183,7 +200,7 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
       begin: Offset(0, widget.start),
       end: Offset(0, widget.end),
     ).animate(CurvedAnimation(
-      parent: _controller,
+      parent: widget.controller.animationController,
       curve: widget.curve,
     ))
       ..addListener(() {
@@ -191,13 +208,20 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
           setState(() {});
         }
       });
-    _controller.forward();
+    widget.controller.animationController.forward();
+
+    widget.controller.addListener(() {
+      if (mounted && widget.hideOnScroll) {
+        setState(() {});
+      }
+      if (widget.onBottomBarHidden != null) widget.onBottomBarHidden!();
+    });
   }
 
   void showBottomBar() {
     if (mounted) {
       setState(() {
-        _controller.forward();
+        widget.controller.animationController.forward();
       });
     }
     if (widget.onBottomBarShown != null) widget.onBottomBarShown!();
@@ -206,7 +230,7 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
   void hideBottomBar() {
     if (mounted && widget.hideOnScroll) {
       setState(() {
-        _controller.reverse();
+        widget.controller.animationController.reverse();
       });
     }
     if (widget.onBottomBarHidden != null) widget.onBottomBarHidden!();
@@ -215,14 +239,16 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
   Future<void> myScroll() async {
     scrollBottomBarController.addListener(() {
       if (!widget.reverse) {
-        if (scrollBottomBarController.position.userScrollDirection == ScrollDirection.reverse) {
+        if (scrollBottomBarController.position.userScrollDirection ==
+            ScrollDirection.reverse) {
           if (!isScrollingDown) {
             isScrollingDown = true;
             isOnTop = false;
             hideBottomBar();
           }
         }
-        if (scrollBottomBarController.position.userScrollDirection == ScrollDirection.forward) {
+        if (scrollBottomBarController.position.userScrollDirection ==
+            ScrollDirection.forward) {
           if (isScrollingDown) {
             isScrollingDown = false;
             isOnTop = true;
@@ -230,14 +256,16 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
           }
         }
       } else {
-        if (scrollBottomBarController.position.userScrollDirection == ScrollDirection.forward) {
+        if (scrollBottomBarController.position.userScrollDirection ==
+            ScrollDirection.forward) {
           if (!isScrollingDown) {
             isScrollingDown = true;
             isOnTop = false;
             hideBottomBar();
           }
         }
-        if (scrollBottomBarController.position.userScrollDirection == ScrollDirection.reverse) {
+        if (scrollBottomBarController.position.userScrollDirection ==
+            ScrollDirection.reverse) {
           if (isScrollingDown) {
             isScrollingDown = false;
             isOnTop = true;
@@ -251,7 +279,7 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
   @override
   void dispose() {
     scrollBottomBarController.removeListener(() {});
-    _controller.dispose();
+    widget.controller.animationController.dispose();
     super.dispose();
   }
 
@@ -295,8 +323,10 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
                           scrollBottomBarController
                               .animateTo(
                             (!widget.scrollOpposite)
-                                ? scrollBottomBarController.position.minScrollExtent
-                                : scrollBottomBarController.position.maxScrollExtent,
+                                ? scrollBottomBarController
+                                    .position.minScrollExtent
+                                : scrollBottomBarController
+                                    .position.maxScrollExtent,
                             duration: widget.duration,
                             curve: widget.curve,
                           )
@@ -312,7 +342,8 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
                         },
                         child: () {
                           if (widget.icon != null) {
-                            return widget.icon!(isOnTop == true ? 0 : widget.iconWidth / 2,
+                            return widget.icon!(
+                                isOnTop == true ? 0 : widget.iconWidth / 2,
                                 isOnTop == true ? 0 : widget.iconHeight / 2);
                           } else {
                             return Center(
@@ -322,7 +353,9 @@ class _BottomBarState extends State<BottomBar> with SingleTickerProviderStateMix
                                 icon: Icon(
                                   Icons.arrow_upward_rounded,
                                   color: Colors.white,
-                                  size: isOnTop == true ? 0 : widget.iconWidth / 2,
+                                  size: isOnTop == true
+                                      ? 0
+                                      : widget.iconWidth / 2,
                                 ),
                               ),
                             );
